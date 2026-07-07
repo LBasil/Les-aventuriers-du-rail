@@ -1,0 +1,78 @@
+// Données du plateau : villes et routes du réseau "Trans-France Express".
+// Réseau original inventé pour ce projet (positions approximatives,
+// pas de tracé recopié d'un jeu existant).
+
+const CITIES = [
+  { id: 'lille', name: 'Lille', x: 482, y: 60 },
+  { id: 'rouen', name: 'Rouen', x: 371, y: 157 },
+  { id: 'paris', name: 'Paris', x: 440, y: 202 },
+  { id: 'reims', name: 'Reims', x: 534, y: 169 },
+  { id: 'strasbourg', name: 'Strasbourg', x: 760, y: 245, labelDx: 12, labelDy: 26, labelAnchor: 'start' },
+  { id: 'nancy', name: 'Nancy', x: 653, y: 215, labelPos: 'below' },
+  { id: 'brest', name: 'Brest', x: 61, y: 239 },
+  { id: 'rennes', name: 'Rennes', x: 217, y: 262 },
+  { id: 'nantes', name: 'Nantes', x: 224, y: 334 },
+  { id: 'orleans', name: 'Orléans', x: 415, y: 279 },
+  { id: 'dijon', name: 'Dijon', x: 590, y: 326 },
+  { id: 'limoges', name: 'Limoges', x: 380, y: 446 },
+  { id: 'clermont', name: 'Clermont-Ferrand', x: 481, y: 450, labelPos: 'below' },
+  { id: 'lyon', name: 'Lyon', x: 578, y: 452 },
+  { id: 'grenoble', name: 'Grenoble', x: 627, y: 498 },
+  { id: 'bordeaux', name: 'Bordeaux', x: 278, y: 527 },
+  { id: 'toulouse', name: 'Toulouse', x: 390, y: 627, labelPos: 'left' },
+  { id: 'montpellier', name: 'Montpellier', x: 525, y: 626 },
+  { id: 'marseille', name: 'Marseille', x: 608, y: 651, labelPos: 'above' },
+  { id: 'nice', name: 'Nice', x: 713, y: 619 },
+
+  // Villes voisines (Belgique, Allemagne) pour un plateau étendu.
+  { id: 'bruxelles', name: 'Bruxelles', x: 555, y: 25, labelPos: 'below' },
+  { id: 'liege', name: 'Liège', x: 660, y: 60 },
+  { id: 'cologne', name: 'Cologne', x: 770, y: 85 },
+  { id: 'sarrebruck', name: 'Sarrebruck', x: 810, y: 185, labelPos: 'below' },
+  { id: 'francfort', name: 'Francfort', x: 890, y: 145, labelPos: 'left' },
+];
+
+// color: une des 8 couleurs de cartes Wagon, ou 'gray' (route grise,
+// revendicable avec n'importe quelle couleur uniforme).
+// tunnel: bool. ferry: nombre minimum de locomotives requises (0 = aucune).
+const ROUTES = [
+  { id: 'r1', from: 'lille', to: 'paris', length: 2, color: 'blue' },
+  { id: 'r2', from: 'lille', to: 'reims', length: 2, color: 'orange' },
+  { id: 'r3', from: 'reims', to: 'nancy', length: 2, color: 'yellow' },
+  { id: 'r4', from: 'nancy', to: 'strasbourg', length: 2, color: 'green', tunnel: true },
+  { id: 'r5', from: 'paris', to: 'reims', length: 2, color: 'gray' },
+  { id: 'r6', from: 'paris', to: 'rouen', length: 1, color: 'gray' },
+  { id: 'r7', from: 'rouen', to: 'rennes', length: 3, color: 'violet' },
+  { id: 'r8', from: 'rennes', to: 'brest', length: 2, color: 'black', ferry: 1 },
+  { id: 'r9', from: 'rennes', to: 'nantes', length: 2, color: 'gray' },
+  { id: 'r10', from: 'nantes', to: 'bordeaux', length: 4, color: 'white' },
+  { id: 'r11', from: 'paris', to: 'orleans', length: 1, color: 'gray' },
+  { id: 'r12', from: 'orleans', to: 'nantes', length: 3, color: 'orange' },
+  { id: 'r13', from: 'orleans', to: 'dijon', length: 3, color: 'red' },
+  { id: 'r14', from: 'nancy', to: 'dijon', length: 3, color: 'blue' },
+  { id: 'r15', from: 'dijon', to: 'lyon', length: 2, color: 'red' },
+  { id: 'r16', from: 'dijon', to: 'clermont', length: 4, color: 'black' },
+  { id: 'r17', from: 'orleans', to: 'limoges', length: 4, color: 'violet' },
+  { id: 'r18', from: 'limoges', to: 'clermont', length: 2, color: 'orange' },
+  { id: 'r19', from: 'limoges', to: 'bordeaux', length: 3, color: 'black' },
+  { id: 'r20', from: 'limoges', to: 'toulouse', length: 4, color: 'gray' },
+  { id: 'r21', from: 'clermont', to: 'lyon', length: 3, color: 'gray', tunnel: true },
+  { id: 'r22', from: 'lyon', to: 'grenoble', length: 1, color: 'yellow' },
+  { id: 'r23', from: 'grenoble', to: 'marseille', length: 4, color: 'white', tunnel: true },
+  { id: 'r24', from: 'lyon', to: 'marseille', length: 4, color: 'blue' },
+  { id: 'r25', from: 'marseille', to: 'montpellier', length: 2, color: 'orange' },
+  { id: 'r26', from: 'montpellier', to: 'toulouse', length: 3, color: 'green' },
+  { id: 'r27', from: 'bordeaux', to: 'toulouse', length: 3, color: 'yellow' },
+  { id: 'r28', from: 'marseille', to: 'nice', length: 3, color: 'red', ferry: 1 },
+
+  // Extension Belgique / Allemagne.
+  { id: 'r29', from: 'lille', to: 'bruxelles', length: 2, color: 'orange' },
+  { id: 'r30', from: 'reims', to: 'bruxelles', length: 3, color: 'white' },
+  { id: 'r31', from: 'bruxelles', to: 'liege', length: 1, color: 'gray' },
+  { id: 'r32', from: 'liege', to: 'nancy', length: 3, color: 'black' },
+  { id: 'r33', from: 'liege', to: 'cologne', length: 2, color: 'blue' },
+  { id: 'r34', from: 'cologne', to: 'francfort', length: 2, color: 'red' },
+  { id: 'r35', from: 'nancy', to: 'sarrebruck', length: 1, color: 'yellow' },
+  { id: 'r36', from: 'sarrebruck', to: 'francfort', length: 2, color: 'orange' },
+  { id: 'r37', from: 'strasbourg', to: 'francfort', length: 2, color: 'violet', ferry: 1 },
+];

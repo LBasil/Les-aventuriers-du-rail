@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trans-France Express</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <h1>Trans-France Express</h1>
+  <div class="topbar-scores" id="topbar-scores"></div>
+</header>
+
+<div class="app" id="app">
+
+  <!-- Écran d'accueil -->
+  <section id="screen-start" class="screen">
+    <div class="card-panel start-panel">
+      <h2>Nouvelle partie</h2>
+      <label>Nom du joueur 1
+        <input type="text" id="input-p1" value="Joueur 1">
+      </label>
+      <label>Nom du joueur 2
+        <input type="text" id="input-p2" value="Joueur 2">
+      </label>
+      <button class="btn btn-primary" id="btn-start">Commencer</button>
+      <p class="hint">2 joueurs, même écran. Chaque joueur garde ses cartes secrètes lors des passages d'écran.</p>
+    </div>
+  </section>
+
+  <!-- Écran "passe l'appareil" -->
+  <section id="screen-handoff" class="screen hidden">
+    <div class="card-panel handoff-panel">
+      <h2 id="handoff-title">Passe l'appareil à</h2>
+      <p id="handoff-name" class="handoff-name"></p>
+      <button class="btn btn-primary" id="btn-reveal">J'ai pris l'appareil, révéler ma main</button>
+    </div>
+  </section>
+
+  <!-- Sélection des destinations initiales -->
+  <section id="screen-setup-destinations" class="screen hidden">
+    <div class="game-layout">
+      <div class="board-column">
+        <div class="board-wrap" id="setup-board-wrap"></div>
+        <p class="hint">La carte du réseau, pour repérer vos destinations.</p>
+      </div>
+      <div class="side-column">
+        <div class="panel">
+          <h2>Vos destinations de départ</h2>
+          <p class="hint">Votre destination de base est acquise d'office :</p>
+          <div id="setup-base-destination" class="destination-card destination-base"></div>
+          <p class="hint">Destinations bonus : gardez-en au moins 1 parmi les 3 (jusqu'à 3 maximum).</p>
+          <div id="setup-destinations-list" class="destinations-choice-list"></div>
+          <button class="btn btn-primary" id="btn-confirm-setup-destinations">Valider</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Plateau de jeu principal -->
+  <section id="screen-game" class="screen hidden">
+    <div class="game-layout">
+      <div class="board-column">
+        <div class="board-wrap" id="board-wrap"></div>
+        <div class="draw-pile-area">
+          <div class="face-up-cards" id="face-up-cards"></div>
+          <div class="deck-pile" id="deck-pile" title="Piocher une carte au hasard">
+            <div class="deck-count" id="deck-count"></div>
+            <span>Pioche</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="side-column">
+        <div class="panel turn-panel">
+          <div id="turn-indicator" class="turn-indicator"></div>
+          <div id="turn-hint" class="turn-hint"></div>
+          <div class="actions-row">
+            <button class="btn" id="btn-action-destinations">Piocher destinations</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>Ma main de wagons</h3>
+          <div id="hand-cards" class="hand-cards"></div>
+        </div>
+
+        <div class="panel">
+          <h3>Mes destinations</h3>
+          <div id="my-destinations" class="destinations-list"></div>
+        </div>
+
+        <div class="panel player-info">
+          <div id="players-info"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Écran fin de partie -->
+  <section id="screen-end" class="screen hidden">
+    <div class="card-panel end-panel">
+      <h2>Fin de partie</h2>
+      <div id="end-results"></div>
+      <button class="btn btn-primary" id="btn-new-game">Nouvelle partie</button>
+    </div>
+  </section>
+
+</div>
+
+<!-- Modal paiement de route -->
+<div id="modal-payment" class="modal hidden">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3 id="payment-title">Revendiquer la route</h3>
+      <button class="modal-close" id="btn-payment-close" aria-label="Fermer">&times;</button>
+    </div>
+    <div id="payment-body"></div>
+    <div class="modal-actions">
+      <button class="btn" id="btn-payment-cancel">Annuler</button>
+      <button class="btn btn-primary" id="btn-payment-confirm">Confirmer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal tunnel -->
+<div id="modal-tunnel" class="modal hidden">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Tunnel !</h3>
+      <button class="modal-close" id="btn-tunnel-close" aria-label="Fermer">&times;</button>
+    </div>
+    <div id="tunnel-body"></div>
+    <div class="modal-actions">
+      <button class="btn" id="btn-tunnel-renounce">Renoncer</button>
+      <button class="btn btn-primary" id="btn-tunnel-pay">Payer le supplément</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal choix destinations (action D) -->
+<div id="modal-destinations" class="modal hidden">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Nouvelles destinations</h3>
+      <button class="modal-close" id="btn-destinations-close" aria-label="Fermer">&times;</button>
+    </div>
+    <p class="hint">Gardez au moins 1 carte, jusqu'à 3 maximum.</p>
+    <div id="destinations-draw-list" class="destinations-choice-list"></div>
+    <div class="modal-actions">
+      <button class="btn" id="btn-destinations-cancel">Annuler</button>
+      <button class="btn btn-primary" id="btn-destinations-confirm">Valider</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="js/board-data.js"></script>
+<script src="js/decks.js"></script>
+<script src="js/game.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
