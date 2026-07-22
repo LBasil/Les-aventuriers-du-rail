@@ -64,6 +64,11 @@
     <div class="game-layout">
       <div class="board-column">
         <div class="board-wrap" id="board-wrap"></div>
+        <div class="board-legend">
+          <span class="legend-item"><span class="legend-swatch legend-gray"></span>Route grise = n'importe quelle couleur uniforme</span>
+          <span class="legend-item">&#x1F573;&#xFE0F; Tunnel = cartes supplémentaires possibles</span>
+          <span class="legend-item">&#x2693; Ferry = locomotive(s) requise(s)</span>
+        </div>
         <div class="draw-pile-area">
           <div class="face-up-cards" id="face-up-cards"></div>
           <div class="deck-pile" id="deck-pile" title="Piocher une carte au hasard">
@@ -79,6 +84,7 @@
           <div id="turn-hint" class="turn-hint"></div>
           <div class="actions-row">
             <button class="btn" id="btn-action-destinations">Piocher destinations</button>
+            <button class="btn" id="btn-action-station">Construire une gare</button>
           </div>
         </div>
 
@@ -152,6 +158,21 @@
     <div class="modal-actions">
       <button class="btn" id="btn-destinations-cancel">Annuler</button>
       <button class="btn btn-primary" id="btn-destinations-confirm">Valider</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal construction de gare (action C) -->
+<div id="modal-station" class="modal hidden">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Construire une gare</h3>
+      <button class="modal-close" id="btn-station-close" aria-label="Fermer">&times;</button>
+    </div>
+    <div id="station-body"></div>
+    <div class="modal-actions">
+      <button class="btn" id="btn-station-cancel">Annuler</button>
+      <button class="btn btn-primary" id="btn-station-confirm">Confirmer</button>
     </div>
   </div>
 </div>

@@ -34,6 +34,7 @@ const Game = (() => {
       completedDestinations: [],
       failedDestinations: [],
       stations: 3,
+      placedStations: [],
       pendingDestinationChoice: [],
     };
   }
@@ -323,12 +324,66 @@ const Game = (() => {
     return { ok: true };
   }
 
+  function stationCost(player) {
+    if (player.stations <= 0) return null;
+    return 4 - player.stations; // 3 restantes -> 1ère gare = 1 carte, 2 restantes -> 2, 1 restante -> 3.
+  }
+
+  function validateStationPayment(colorToUse, locoCount, hand, cost) {
+    if (locoCount < 0 || locoCount > cost) return { ok: false, error: 'Nombre de locomotives invalide.' };
+    const colorCount = cost - locoCount;
+    if (colorCount > 0) {
+      if (!colorToUse) return { ok: false, error: 'Choisissez une couleur.' };
+      if ((hand[colorToUse] || 0) < colorCount) return { ok: false, error: 'Pas assez de cartes de cette couleur.' };
+    }
+    if ((hand[LOCOMOTIVE] || 0) < locoCount) return { ok: false, error: 'Pas assez de locomotives.' };
+    return { ok: true, colorCount };
+  }
+
+  function buildStation(cityId, colorToUse, locoCount) {
+    if (state.phase !== 'playing') return { ok: false, error: 'Partie non active.' };
+    if (state.turn) return { ok: false, error: 'Une autre action est en cours.' };
+    if (!cityById(cityId)) return { ok: false, error: 'Ville introuvable.' };
+    const player = currentPlayer();
+    const cost = stationCost(player);
+    if (cost == null) return { ok: false, error: 'Plus de gare disponible.' };
+    if (player.placedStations.includes(cityId)) return { ok: false, error: 'Vous avez déjà une gare dans cette ville.' };
+
+    const check = validateStationPayment(colorToUse, locoCount, player.hand, cost);
+    if (!check.ok) return check;
+
+    if (check.colorCount > 0) {
+      player.hand[colorToUse] -= check.colorCount;
+      for (let i = 0; i < check.colorCount; i++) state.wagonDiscard.push(colorToUse);
+    }
+    if (locoCount > 0) {
+      player.hand[LOCOMOTIVE] -= locoCount;
+      for (let i = 0; i < locoCount; i++) state.wagonDiscard.push(LOCOMOTIVE);
+    }
+    player.placedStations.push(cityId);
+    player.stations -= 1;
+    endTurn();
+    return { ok: true };
+  }
+
   function buildPlayerEdges(playerIndex) {
     return state.routes.filter(r => r.claimedBy === playerIndex);
   }
 
+  // Une gare posée dans une ville permet, pour le décompte des destinations
+  // uniquement (pas pour le bonus de route continue), d'emprunter les routes
+  // adverses partant de cette ville — simplification du "bonifier une
+  // destination via une route adverse" de la section 4.C de la spec.
   function isConnected(playerIndex, cityA, cityB) {
-    const edges = buildPlayerEdges(playerIndex);
+    const player = state.players[playerIndex];
+    const edges = buildPlayerEdges(playerIndex).slice();
+    player.placedStations.forEach(cityId => {
+      state.routes.forEach(r => {
+        if (r.claimedBy != null && r.claimedBy !== playerIndex && (r.from === cityId || r.to === cityId)) {
+          edges.push(r);
+        }
+      });
+    });
     const adj = {};
     edges.forEach(e => {
       (adj[e.from] = adj[e.from] || []).push(e.to);
@@ -422,6 +477,9 @@ const Game = (() => {
     actionDrawDestinations,
     cancelDrawnDestinations,
     confirmDrawnDestinations,
+    stationCost,
+    validateStationPayment,
+    buildStation,
     getState,
     getRoute,
     currentPlayer,

@@ -148,7 +148,8 @@
 - Fin de partie + décompte des points + route la plus longue
 
 **Reporté à une V2 (si envie) :**
-- Gares (action C) et leur bonus de fin de partie
+- ~~Gares (action C) et leur bonus de fin de partie~~ — implémenté le
+  2026-07-22, voir section 11.
 - Mode 3+ joueurs
 - Sauvegarde de partie / plusieurs parties
 - Plateau complet (30 villes) et variantes de règles
@@ -164,3 +165,101 @@
    ferries, piocher destinations).
 5. Implémenter le décompte de fin de partie.
 6. Itérer sur l'UI/UX une fois la logique fonctionnelle.
+
+## 11. Notes ici les informations importante et un historique de tes modifications
+
+### 2026-07-22 — Revue complète + tests de non-régression (Claude)
+
+État constaté : le MVP V1 (section 9) est déjà entièrement implémenté et
+fonctionnel — `index.html` + `css/style.css` + `js/{board-data,decks,game,ui,main}.js`.
+Plateau de 24 villes (France + extension Belgique/Allemagne), 37 routes
+(gris, tunnels, ferries inclus), 24 destinations, actions A/B/D complètes,
+fin de partie + décompte (routes, destinations, route la plus longue)
+conformes au barème section 6. Gares (action C) volontairement absentes,
+conformément au report en V2 (section 9).
+
+Vérifications effectuées (aucun bug trouvé dans le code du jeu) :
+- Simulation headless (Node, `vm` + bot aléatoire) de 200 parties complètes
+  avec vérification d'invariants à chaque tour (conservation des 126 cartes
+  wagon, jamais de main/wagons négatifs, cohérence pioche/défausse/visibles).
+  Aucune violation d'invariant sur 200 parties. Les rares parties qui ne
+  convergent pas en 4000 tours sont un artefact du bot 100% aléatoire
+  (accumulation de couleurs inutiles), pas un blocage réel du jeu.
+- Test bout-en-bout dans un vrai navigateur (Playwright/Edge headless) :
+  écran d'accueil → passage d'écran → choix des destinations de départ
+  (2 joueurs) → plateau principal → ouverture de la modale de paiement →
+  revendication d'une route → mise à jour score/wagons → passage d'écran
+  au joueur suivant. Zéro erreur console/page sur tout le parcours.
+- Relecture ligne à ligne de `game.js` (validation paiement, tunnels,
+  fin de partie, plus longue route) et `ui.js` (correspondance des IDs DOM,
+  états désactivés, modales) : cohérent avec la spec.
+
+Aucune modification de code nécessaire suite à cette revue — le projet est
+dans un état sain.
+
+### 2026-07-22 — Polish UI/plateau (Claude)
+
+Suite à la revue ci-dessus, choix utilisateur : polish visuel plutôt que les
+gares. Vérifié le rendu réel (Playwright/Edge headless) en desktop, tablette
+(850px) et mobile (390px) avant/après modification. Changements :
+
+- **Bug visuel corrigé** : le libellé "Limoges" chevauchait la route vers
+  Clermont-Ferrand sur tous les formats d'écran (`js/board-data.js`,
+  position de l'étiquette repositionnée en haut-gauche de la ville).
+- **Lisibilité du tour en cours** : la pastille de couleur du joueur actif
+  apparaît maintenant devant "Tour de X" dans le panneau de tour, et sa
+  ligne dans la liste des joueurs est surlignée (bordure + fond teintés de
+  sa couleur) — plus facile de suivre qui joue en pass-and-play
+  (`js/ui.js`, `css/style.css`).
+- **Légende du plateau** : ajout d'un bandeau compact sous le plateau
+  expliquant les routes grises, tunnels et ferries pour un nouveau joueur
+  (`index.html`, `css/style.css`).
+
+Revérifié après coup : simulation + parcours navigateur toujours sans
+erreur console, capture d'écran desktop/tablette/mobile conformes.
+
+### 2026-07-22 (suite) — Lisibilité du plateau + Gares (V2) (Claude)
+
+Demande : ne pas hésiter à utiliser du scroll horizontal/vertical plutôt que
+de rétrécir le texte, et passer à la V2.
+
+**Lisibilité** (`css/style.css`) : taille des noms de ville 12px → 16px
+(gras, contour renforcé), badges de longueur de route 10px → 13px, largeur
+minimale du plateau 640px → 900px. Le plateau peut désormais dépasser son
+conteneur sur petit écran (scroll interne horizontal, la page défile
+verticalement comme avant) plutôt que de miniaturiser le texte. Deux
+chevauchements d'étiquettes révélés par l'agrandissement ont été corrigés
+(`js/board-data.js`) : Lille/Bruxelles (Lille déplacé en haut-gauche de son
+point) et Montpellier/Marseille (Marseille déplacé en dessous de son point).
+
+**Gares (action C, section 4.C)** — implémentation complète :
+- `js/game.js` : `player.placedStations` (villes où le joueur a posé une
+  gare), `stationCost(player)` (1/2/3 cartes selon la gare posée, comme
+  spécifié), `validateStationPayment`, `buildStation(cityId, colorToUse,
+  locoCount)` — action complète en un appel (pas d'étape intermédiaire
+  comme les tunnels), qui débite les cartes (couleur unique + locomotives
+  en complément) et termine le tour.
+- **Simplification du bonus de fin de partie** (la spec demandait
+  explicitement de la simplifier/valider) : au lieu de choisir précisément
+  quelle route adverse emprunter, une gare posée dans une ville rend
+  *toutes* les routes adverses touchant cette ville utilisables pour la
+  connectivité des destinations de son propriétaire (uniquement pour
+  déterminer si une destination est réussie — aucun impact sur le bonus de
+  route continue, qui reste basé sur les seules routes possédées). Voir
+  `isConnected()` dans `js/game.js`. À ajuster si cette version simplifiée
+  s'avère trop généreuse à l'usage.
+- UI (`index.html`, `js/ui.js`) : bouton "Construire une gare" dans le
+  panneau de tour (affiche le nombre de gares restantes, désactivé à 0),
+  modale dédiée (ville via liste déroulante plutôt que clic sur le plateau
+  — plus simple et plus accessible que des cibles minuscules dans le SVG),
+  marqueurs carrés colorés sur le plateau pour chaque gare posée, compteur
+  de gares dans le panneau des joueurs.
+
+Vérifié : simulation headless (200 parties, bot construisant aussi des
+gares aléatoirement ~8% des tours) sans violation d'invariant ni crash dans
+`isConnected`/`buildStation` ; parcours navigateur bout-en-bout (construire
+une gare, vérifier le débit des cartes, le marqueur sur le plateau, le
+passage de tour) sans erreur console.
+
+Non implémenté (hors scope de cette session) : mode 3+ joueurs, sauvegarde
+de partie, plateau 30 villes complet.

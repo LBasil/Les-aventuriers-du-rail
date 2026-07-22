@@ -12,6 +12,12 @@ const UI = (() => {
 
   function q(id) { return document.getElementById(id); }
 
+  function hexToRgba(hex, alpha) {
+    const n = parseInt(hex.slice(1), 16);
+    const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
   function cacheEls() {
     els = {
       screenStart: q('screen-start'),
@@ -35,6 +41,7 @@ const UI = (() => {
       turnIndicator: q('turn-indicator'),
       turnHint: q('turn-hint'),
       btnActionDestinations: q('btn-action-destinations'),
+      btnActionStation: q('btn-action-station'),
       handCards: q('hand-cards'),
       myDestinations: q('my-destinations'),
       playersInfo: q('players-info'),
@@ -57,6 +64,11 @@ const UI = (() => {
       btnDestinationsConfirm: q('btn-destinations-confirm'),
       btnDestinationsCancel: q('btn-destinations-cancel'),
       btnDestinationsClose: q('btn-destinations-close'),
+      modalStation: q('modal-station'),
+      stationBody: q('station-body'),
+      btnStationConfirm: q('btn-station-confirm'),
+      btnStationCancel: q('btn-station-cancel'),
+      btnStationClose: q('btn-station-close'),
       toast: q('toast'),
     };
   }
@@ -291,11 +303,15 @@ const UI = (() => {
     els.playersInfo.innerHTML = '';
     state.players.forEach((p, idx) => {
       const row = document.createElement('div');
-      row.className = 'player-row';
       const isCurrent = idx === state.currentPlayerIndex;
+      row.className = 'player-row' + (isCurrent ? ' current' : '');
+      if (isCurrent) {
+        row.style.borderLeft = `3px solid ${PLAYER_HEX[p.color]}`;
+        row.style.background = hexToRgba(PLAYER_HEX[p.color], 0.1);
+      }
       row.innerHTML = `
         <span class="name"><span class="dot" style="width:10px;height:10px;border-radius:50%;display:inline-block;background:${PLAYER_HEX[p.color]}"></span>${p.name}${isCurrent ? ' (en cours)' : ''}</span>
-        <span>${p.score} pts · ${p.trainsLeft} wagons · ${p.destinations.length} destinations</span>
+        <span>${p.score} pts · ${p.trainsLeft} wagons · ${p.destinations.length} destinations · ${p.stations} gare(s)</span>
       `;
       els.playersInfo.appendChild(row);
     });
@@ -304,7 +320,7 @@ const UI = (() => {
   function renderTurnPanel() {
     const state = Game.getState();
     const player = Game.currentPlayer();
-    els.turnIndicator.textContent = `Tour de ${player.name}`;
+    els.turnIndicator.innerHTML = `<span class="dot" style="width:10px;height:10px;border-radius:50%;display:inline-block;background:${PLAYER_HEX[player.color]};margin-right:8px"></span>Tour de ${player.name}`;
     let hint = '';
     if (state.finalRound.active) hint = 'Dernier tour de la partie ! ';
     if (state.turn && state.turn.type === 'draw') {
@@ -318,6 +334,10 @@ const UI = (() => {
     }
     els.turnHint.textContent = hint;
     els.btnActionDestinations.disabled = !!state.turn;
+    els.btnActionStation.disabled = !!state.turn || player.stations <= 0;
+    els.btnActionStation.textContent = player.stations > 0
+      ? `Construire une gare (${player.stations} restante(s))`
+      : 'Plus de gare disponible';
   }
 
   function onActionDestinations() {
@@ -325,6 +345,10 @@ const UI = (() => {
     const res = Game.actionDrawDestinations();
     if (!res.ok) { toast(res.error, true); return; }
     openDestinationsModal(res.drawn);
+  }
+
+  function onActionStation() {
+    openStationModal();
   }
 
   // ---------- Board rendering ----------
@@ -443,6 +467,22 @@ const UI = (() => {
       label.textContent = city.name;
       svg.appendChild(dot);
       svg.appendChild(label);
+
+      const stationOwners = state.players
+        .map((p, idx) => ({ p, idx }))
+        .filter(({ p }) => p.placedStations.includes(city.id));
+      stationOwners.forEach(({ p }, i) => {
+        const marker = svgEl('rect', {
+          x: city.x - 13 + i * 11,
+          y: city.y + 9,
+          width: 9,
+          height: 9,
+          rx: 2,
+          fill: PLAYER_HEX[p.color],
+          class: 'city-station',
+        });
+        svg.appendChild(marker);
+      });
     });
 
     target.appendChild(svg);
@@ -664,6 +704,114 @@ const UI = (() => {
     renderAll();
   }
 
+  // ---------- Station modal (action C) ----------
+
+  let stationState = null;
+
+  function eligibleStationCities(player) {
+    return CITIES.filter(c => !player.placedStations.includes(c.id));
+  }
+
+  function openStationModal() {
+    dismissToast();
+    const player = Game.currentPlayer();
+    const cities = eligibleStationCities(player);
+    if (cities.length === 0) { toast('Vous avez déjà une gare dans toutes les villes.', true); return; }
+    const availableColors = WAGON_COLORS.filter(c => (player.hand[c] || 0) > 0);
+    stationState = {
+      cityId: cities[0].id,
+      colorToUse: availableColors[0] || null,
+      locoCount: 0,
+    };
+    renderStationModal();
+    els.modalStation.classList.remove('hidden');
+  }
+
+  function renderStationModal() {
+    const player = Game.currentPlayer();
+    const cost = Game.stationCost(player);
+    const cities = eligibleStationCities(player);
+    const availableColors = WAGON_COLORS.filter(c => (player.hand[c] || 0) > 0);
+    const colorCount = cost - stationState.locoCount;
+    const check = Game.validateStationPayment(stationState.colorToUse, stationState.locoCount, player.hand, cost);
+
+    let html = `<div class="route-summary">
+      Coût de cette gare (n° ${cost}) : <strong>${cost}</strong> carte(s) d'une seule couleur
+      (locomotives substituables) · Il vous reste <strong>${player.stations}</strong> gare(s).
+    </div>`;
+
+    html += `<div class="payment-option"><span>Ville</span>
+      <select id="station-city-select">${cities.map(c =>
+        `<option value="${c.id}" ${c.id === stationState.cityId ? 'selected' : ''}>${c.name}</option>`
+      ).join('')}</select>
+    </div>`;
+
+    html += '<div class="payment-option"><span>Couleur utilisée</span>';
+    if (availableColors.length > 0 && colorCount > 0) {
+      html += `<select id="station-color-select">${availableColors.map(c =>
+        `<option value="${c}" ${c === stationState.colorToUse ? 'selected' : ''}>${CARD_LABELS[c]} (${player.hand[c] || 0} en main)</option>`
+      ).join('')}</select>`;
+    } else {
+      html += '<span class="hint">—</span>';
+    }
+    html += '</div>';
+
+    html += `<div class="payment-option"><span>Locomotives utilisées (${player.hand[LOCOMOTIVE] || 0} en main)</span>
+      <div class="stepper">
+        <button id="station-loco-minus">−</button>
+        <span id="station-loco-value">${stationState.locoCount}</span>
+        <button id="station-loco-plus">+</button>
+      </div>
+    </div>`;
+
+    html += `<div class="payment-option"><span>Cartes couleur nécessaires</span><strong>${Math.max(colorCount, 0)}</strong></div>`;
+
+    if (!check.ok) {
+      html += `<p class="hint" style="color:var(--danger)">${check.error}</p>`;
+    }
+
+    els.stationBody.innerHTML = html;
+    els.btnStationConfirm.disabled = !check.ok;
+
+    q('station-city-select').onchange = (e) => {
+      stationState.cityId = e.target.value;
+      renderStationModal();
+    };
+    const colorSelect = q('station-color-select');
+    if (colorSelect) {
+      colorSelect.onchange = () => {
+        stationState.colorToUse = colorSelect.value;
+        renderStationModal();
+      };
+    }
+    q('station-loco-minus').onclick = () => {
+      stationState.locoCount = Math.max(0, stationState.locoCount - 1);
+      renderStationModal();
+    };
+    q('station-loco-plus').onclick = () => {
+      stationState.locoCount = Math.min(cost, stationState.locoCount + 1);
+      renderStationModal();
+    };
+  }
+
+  function closeStationModal() {
+    els.modalStation.classList.add('hidden');
+    stationState = null;
+  }
+
+  function onStationConfirm() {
+    if (!stationState) return;
+    const player = Game.currentPlayer();
+    const cost = Game.stationCost(player);
+    const colorCount = cost - stationState.locoCount;
+    const colorToUse = colorCount > 0 ? stationState.colorToUse : null;
+    const prev = Game.getState().currentPlayerIndex;
+    const res = Game.buildStation(stationState.cityId, colorToUse, stationState.locoCount);
+    if (!res.ok) { toast(res.error, true); return; }
+    closeStationModal();
+    afterAction(prev);
+  }
+
   // ---------- End screen ----------
 
   function showEndScreen() {
@@ -710,6 +858,10 @@ const UI = (() => {
     els.btnReveal.onclick = onReveal;
     els.btnConfirmSetupDestinations.onclick = onConfirmSetupDestinations;
     els.btnActionDestinations.onclick = onActionDestinations;
+    els.btnActionStation.onclick = onActionStation;
+    els.btnStationConfirm.onclick = onStationConfirm;
+    els.btnStationCancel.onclick = closeStationModal;
+    els.btnStationClose.onclick = closeStationModal;
     els.btnPaymentCancel.onclick = closePaymentModal;
     els.btnPaymentClose.onclick = closePaymentModal;
     els.btnPaymentConfirm.onclick = onPaymentConfirm;

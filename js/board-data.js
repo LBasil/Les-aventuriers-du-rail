@@ -3,7 +3,7 @@
 // pas de tracé recopié d'un jeu existant).
 
 const CITIES = [
-  { id: 'lille', name: 'Lille', x: 482, y: 60 },
+  { id: 'lille', name: 'Lille', x: 482, y: 60, labelDx: -14, labelDy: -8, labelAnchor: 'end' },
   { id: 'rouen', name: 'Rouen', x: 371, y: 157 },
   { id: 'paris', name: 'Paris', x: 440, y: 202 },
   { id: 'reims', name: 'Reims', x: 534, y: 169 },
@@ -14,14 +14,14 @@ const CITIES = [
   { id: 'nantes', name: 'Nantes', x: 224, y: 334 },
   { id: 'orleans', name: 'Orléans', x: 415, y: 279 },
   { id: 'dijon', name: 'Dijon', x: 590, y: 326 },
-  { id: 'limoges', name: 'Limoges', x: 380, y: 446 },
+  { id: 'limoges', name: 'Limoges', x: 380, y: 446, labelDx: -12, labelDy: -12, labelAnchor: 'end' },
   { id: 'clermont', name: 'Clermont-Ferrand', x: 481, y: 450, labelPos: 'below' },
   { id: 'lyon', name: 'Lyon', x: 578, y: 452 },
   { id: 'grenoble', name: 'Grenoble', x: 627, y: 498 },
   { id: 'bordeaux', name: 'Bordeaux', x: 278, y: 527 },
   { id: 'toulouse', name: 'Toulouse', x: 390, y: 627, labelPos: 'left' },
   { id: 'montpellier', name: 'Montpellier', x: 525, y: 626 },
-  { id: 'marseille', name: 'Marseille', x: 608, y: 651, labelPos: 'above' },
+  { id: 'marseille', name: 'Marseille', x: 608, y: 651, labelPos: 'below' },
   { id: 'nice', name: 'Nice', x: 713, y: 619 },
 
   // Villes voisines (Belgique, Allemagne) pour un plateau étendu.
