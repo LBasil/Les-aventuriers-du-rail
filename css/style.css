@@ -147,10 +147,11 @@ body {
   overflow: auto;
 }
 
-/* Priorité à la lisibilité des noms de villes : le plateau a le droit de
-   dépasser son conteneur (scroll horizontal et/ou vertical) plutôt que de
-   rétrécir le texte. */
-.board-wrap svg { width: 100%; min-width: 900px; height: auto; display: block; }
+/* Le plateau s'adapte à la largeur disponible pour que toute la carte (Belgique
+   et Allemagne comprises) soit visible sur un écran de portable. En dessous de
+   720px, il garde cette taille minimale et se fait défiler pour que les noms
+   de villes restent lisibles. */
+.board-wrap svg { width: 100%; min-width: 720px; height: auto; display: block; }
 
 .city-dot {
   fill: #f4f1e8;
