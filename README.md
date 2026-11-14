@@ -14,3 +14,11 @@ Ouvrir `index.html` dans un navigateur.
 - `js/decks.js` : cartes wagon et destinations
 - `js/game.js` : règles et état de la partie
 - `js/ui.js`, `js/main.js` : affichage et événements
+
+## Tests
+
+```bash
+npm test
+```
+
+Les tests chargent `board-data.js`, `decks.js` et `game.js` tels quels dans un contexte Node isolé, sans modifier le code du navigateur. Ils vérifient la cohérence du réseau, la mise en place, la pioche, la prise de route (couleur, locomotives, ferry), le barème de points et le déclenchement du dernier tour.
