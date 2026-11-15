@@ -62,8 +62,9 @@ const UI = (() => {
       modalDestinations: q('modal-destinations'),
       destinationsDrawList: q('destinations-draw-list'),
       btnDestinationsConfirm: q('btn-destinations-confirm'),
-      btnDestinationsCancel: q('btn-destinations-cancel'),
-      btnDestinationsClose: q('btn-destinations-close'),
+      btnRules: q('btn-rules'),
+      btnRulesClose: q('btn-rules-close'),
+      modalRules: q('modal-rules'),
       modalStation: q('modal-station'),
       stationBody: q('station-body'),
       btnStationConfirm: q('btn-station-confirm'),
@@ -115,6 +116,16 @@ const UI = (() => {
     if (state.phase === 'gameover') {
       showEndScreen();
       return;
+    }
+    // Plus aucune action possible (pioche vide, aucune route abordable...) : le tour est passé.
+    if (!state.turn && !Game.canAct()) {
+      const name = Game.currentPlayer().name;
+      const res = Game.passTurn();
+      toast(`${name} ne peut plus rien faire : tour passé.`);
+      if (res.gameOver) {
+        showEndScreen();
+        return;
+      }
     }
     if (state.currentPlayerIndex !== prevPlayerIndex) {
       goToPlayerScreen(state.currentPlayerIndex, showGameScreen);
@@ -697,26 +708,21 @@ const UI = (() => {
     afterAction(prev);
   }
 
-  function onCancelDrawnDestinations() {
-    const res = Game.cancelDrawnDestinations();
-    els.modalDestinations.classList.add('hidden');
-    if (!res.ok) { toast(res.error, true); return; }
-    renderAll();
-  }
-
   // ---------- Station modal (action C) ----------
 
   let stationState = null;
 
-  function eligibleStationCities(player) {
-    return CITIES.filter(c => !player.placedStations.includes(c.id));
+  // Une seule gare par ville, tous joueurs confondus.
+  function eligibleStationCities() {
+    const players = Game.getState().players;
+    return CITIES.filter(c => players.every(p => !p.placedStations.includes(c.id)));
   }
 
   function openStationModal() {
     dismissToast();
     const player = Game.currentPlayer();
     const cities = eligibleStationCities(player);
-    if (cities.length === 0) { toast('Vous avez déjà une gare dans toutes les villes.', true); return; }
+    if (cities.length === 0) { toast('Toutes les villes ont déjà une gare.', true); return; }
     const availableColors = WAGON_COLORS.filter(c => (player.hand[c] || 0) > 0);
     stationState = {
       cityId: cities[0].id,
@@ -843,6 +849,9 @@ const UI = (() => {
       if (r.bonus > 0) {
         html += `<div class="end-line"><span>Route continue la plus longue (${r.longest})</span><span>+${r.bonus}</span></div>`;
       }
+      if (r.stationBonus > 0) {
+        html += `<div class="end-line"><span>Gares non posées (${p.stations})</span><span>+${r.stationBonus}</span></div>`;
+      }
       html += `<div class="end-line total"><span>Total</span><span>${p.score}</span></div>`;
       block.innerHTML = html;
       els.endResults.appendChild(block);
@@ -869,9 +878,11 @@ const UI = (() => {
     els.btnTunnelRenounce.onclick = onTunnelRenounce;
     els.btnTunnelClose.onclick = onTunnelRenounce;
     els.btnDestinationsConfirm.onclick = onConfirmDrawnDestinations;
-    els.btnDestinationsCancel.onclick = onCancelDrawnDestinations;
-    els.btnDestinationsClose.onclick = onCancelDrawnDestinations;
     els.btnNewGame.onclick = onNewGame;
+    els.btnRules.onclick = () => els.modalRules.classList.remove('hidden');
+    els.btnRulesClose.onclick = () => els.modalRules.classList.add('hidden');
+    els.modalRules.addEventListener('click', e => { if (e.target === els.modalRules) els.modalRules.classList.add('hidden'); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') els.modalRules.classList.add('hidden'); });
   }
 
   function init() {

@@ -514,3 +514,11 @@ body {
 
   .destination-choice-item { flex-wrap: wrap; }
 }
+
+/* Règles du jeu */
+.topbar { gap: 12px; }
+.btn-rules { padding: 6px 12px; font-size: 0.85rem; }
+.rules-content { max-width: 560px; max-height: 85vh; overflow-y: auto; }
+.rules-content details { border-top: 1px solid var(--border); padding: 8px 0; }
+.rules-content summary { cursor: pointer; font-weight: 600; }
+.rules-content ul { margin: 8px 0 4px; padding-left: 20px; line-height: 1.5; font-size: 0.92rem; }

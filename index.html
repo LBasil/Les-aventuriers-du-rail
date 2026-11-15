@@ -11,6 +11,7 @@
 <header class="topbar">
   <h1>Trans-France Express</h1>
   <div class="topbar-scores" id="topbar-scores"></div>
+  <button class="btn btn-rules" id="btn-rules" type="button">Règles</button>
 </header>
 
 <div class="app" id="app">
@@ -151,12 +152,10 @@
   <div class="modal-content">
     <div class="modal-header">
       <h3>Nouvelles destinations</h3>
-      <button class="modal-close" id="btn-destinations-close" aria-label="Fermer">&times;</button>
     </div>
-    <p class="hint">Gardez au moins 1 carte, jusqu'à 3 maximum.</p>
+    <p class="hint">Gardez au moins 1 carte, jusqu'à 3 maximum. Les cartes vues ne peuvent pas être remises : la décision est définitive.</p>
     <div id="destinations-draw-list" class="destinations-choice-list"></div>
     <div class="modal-actions">
-      <button class="btn" id="btn-destinations-cancel">Annuler</button>
       <button class="btn btn-primary" id="btn-destinations-confirm">Valider</button>
     </div>
   </div>
@@ -174,6 +173,50 @@
       <button class="btn" id="btn-station-cancel">Annuler</button>
       <button class="btn btn-primary" id="btn-station-confirm">Confirmer</button>
     </div>
+  </div>
+</div>
+
+<!-- Règles du jeu -->
+<div id="modal-rules" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="rules-title">
+  <div class="modal-content rules-content">
+    <div class="modal-header">
+      <h3 id="rules-title">Règles du jeu</h3>
+      <button class="modal-close" id="btn-rules-close" aria-label="Fermer">&times;</button>
+    </div>
+    <p class="hint">But : marquer le plus de points en reliant des villes avec vos wagons.</p>
+    <details open>
+      <summary>Un tour : une seule action</summary>
+      <ul>
+        <li><strong>Piocher des cartes wagon</strong> : 2 cartes, visibles ou à l'aveugle. Une locomotive visible compte pour 2 cartes et termine le tour (impossible en deuxième carte).</li>
+        <li><strong>Prendre une route</strong> : défaussez autant de cartes de la couleur de la route que sa longueur. Les locomotives remplacent n'importe quelle couleur. Une route grise accepte une couleur au choix.</li>
+        <li><strong>Piocher des destinations</strong> : 3 cartes, gardez-en au moins 1. Pas de retour en arrière.</li>
+        <li><strong>Construire une gare</strong> : 1 carte pour la première, 2 pour la deuxième, 3 pour la troisième, d'une seule couleur. Une seule gare par ville.</li>
+      </ul>
+    </details>
+    <details>
+      <summary>Routes spéciales</summary>
+      <ul>
+        <li><strong>Tunnel</strong> (petit ovale sur la route) : 3 cartes sont retournées après votre paiement. Chaque carte de la couleur utilisée, ou locomotive, oblige à payer une carte de plus. Vous pouvez renoncer sans rien perdre, et le tour est alors terminé.</li>
+        <li><strong>Ferry</strong> (ancre) : au moins le nombre de locomotives indiqué doit faire partie du paiement.</li>
+      </ul>
+    </details>
+    <details>
+      <summary>Points</summary>
+      <ul>
+        <li>Route : 1 → 1 pt, 2 → 2, 3 → 4, 4 → 7, 5 → 10, 6 → 15.</li>
+        <li>Destination reliée en fin de partie : + ses points. Non reliée : − ses points.</li>
+        <li>Plus longue chaîne de routes continue : + 10 points (pour les deux en cas d'égalité).</li>
+        <li>Chaque gare non posée : + 4 points.</li>
+        <li>Une gare vous laisse emprunter une seule route adverse partant de sa ville, uniquement pour relier vos destinations.</li>
+      </ul>
+    </details>
+    <details>
+      <summary>Fin de partie</summary>
+      <ul>
+        <li>Quand un joueur finit son tour avec 2 wagons ou moins, l'autre joue un dernier tour. Même chose si plus aucune route libre n'est abordable avec les wagons restants.</li>
+        <li>Égalité : celui qui a relié le plus de destinations gagne.</li>
+      </ul>
+    </details>
   </div>
 </div>
 

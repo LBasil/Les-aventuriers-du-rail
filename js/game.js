@@ -1,6 +1,8 @@
 // Logique de jeu de Trans-France Express : état central (gameState) et actions.
 // Convention : chaque action publique renvoie { ok: true, ... } ou { ok: false, error }.
 
+const STATION_BONUS_PER_UNUSED = 4;
+
 const Game = (() => {
   let state = null;
 
@@ -130,9 +132,60 @@ const Game = (() => {
     return { ok: true };
   }
 
-  function endTurn() {
+  // Vrai si le joueur courant a au moins une action légale. Sans cela (pioche et défausse
+  // vides, plus de route abordable, plus de gare...) la partie serait bloquée.
+  function canAct() {
+    if (!state || state.phase !== 'playing') return false;
     const player = currentPlayer();
-    if (!state.finalRound.active && player.trainsLeft <= 2) {
+    if (state.wagonDeck.length + state.wagonDiscard.length > 0 || state.faceUp.length > 0) return true;
+    if (state.destinationDeck.length > 0) return true;
+    const cost = stationCost(player);
+    if (cost != null && CITIES.some(c => stationOwnerAt(c.id) == null)) {
+      for (const color of WAGON_COLORS) {
+        for (let loco = 0; loco <= cost; loco++) {
+          if (validateStationPayment(color, loco, player.hand, cost).ok) return true;
+        }
+      }
+    }
+    return state.routes.some(r => {
+      if (r.claimedBy != null || player.trainsLeft < r.length) return false;
+      const colors = r.color === 'gray' ? WAGON_COLORS : [r.color];
+      return colors.some(color => {
+        for (let loco = 0; loco <= r.length; loco++) {
+          if (validatePayment(r, color, loco, player.hand).ok) return true;
+        }
+        return false;
+      });
+    });
+  }
+
+  // Passer son tour n'est permis que lorsqu'aucune action n'est possible. Si les deux
+  // joueurs passent à la suite, la partie se termine.
+  function passTurn() {
+    if (state.phase !== 'playing') return { ok: false, error: 'Partie non active.' };
+    if (state.turn) return { ok: false, error: 'Une autre action est en cours.' };
+    if (canAct()) return { ok: false, error: 'Une action est possible : passer son tour est interdit.' };
+    state.passStreak = (state.passStreak || 0) + 1;
+    if (state.passStreak >= state.players.length) {
+      finishGame();
+      return { ok: true, gameOver: true };
+    }
+    state.currentPlayerIndex = (state.currentPlayerIndex + 1) % state.players.length;
+    return { ok: true };
+  }
+
+  // Si aucun joueur n'a assez de wagons pour une route encore libre, personne ne peut plus
+  // marquer de points avec les routes : le dernier tour est déclenché comme si quelqu'un
+  // avait atteint 2 wagons. Sans cela, la partie pourrait ne jamais se terminer.
+  function noRouteLeftForAnyone() {
+    const maxTrains = Math.max(...state.players.map(p => p.trainsLeft));
+    return state.routes.every(r => r.claimedBy != null || r.length > maxTrains);
+  }
+
+  function endTurn() {
+    state.passStreak = 0;
+    const player = currentPlayer();
+    if (!state.finalRound.active && (player.trainsLeft <= 2 || noRouteLeftForAnyone())) {
       state.finalRound = { active: true, turnsRemaining: state.players.length - 1 };
     } else if (state.finalRound.active) {
       state.finalRound.turnsRemaining -= 1;
@@ -143,6 +196,15 @@ const Game = (() => {
     } else {
       state.currentPlayerIndex = (state.currentPlayerIndex + 1) % state.players.length;
     }
+  }
+
+  // Après une première carte, le tour se termine tout seul s'il n'y a plus rien à piocher
+  // (une locomotive visible n'est pas autorisée en deuxième carte).
+  function canDrawSecondCard() {
+    return (
+      state.wagonDeck.length + state.wagonDiscard.length > 0 ||
+      state.faceUp.some(c => c !== LOCOMOTIVE)
+    );
   }
 
   function drawFaceUp(index) {
@@ -163,7 +225,7 @@ const Game = (() => {
     fillFaceUpOnce();
     ensureFaceUpValid();
     state.turn.drawsLeft = isLoco ? 0 : state.turn.drawsLeft - 1;
-    if (state.turn.drawsLeft <= 0) endTurn();
+    if (state.turn.drawsLeft <= 0 || !canDrawSecondCard()) endTurn();
     return { ok: true };
   }
 
@@ -172,13 +234,14 @@ const Game = (() => {
     if (state.turn && state.turn.type !== 'draw') {
       return { ok: false, error: 'Une autre action est en cours.' };
     }
-    if (!state.turn) state.turn = { type: 'draw', drawsLeft: 2 };
+    // On pioche d'abord : si la pioche est vide, aucun tour de pioche ne doit rester ouvert.
     const card = drawWagonFromDeck();
     if (card == null) return { ok: false, error: 'Pioche épuisée.' };
+    if (!state.turn) state.turn = { type: 'draw', drawsLeft: 2 };
     const player = currentPlayer();
     player.hand[card] += 1;
     state.turn.drawsLeft -= 1;
-    if (state.turn.drawsLeft <= 0) endTurn();
+    if (state.turn.drawsLeft <= 0 || !canDrawSecondCard()) endTurn();
     return { ok: true };
   }
 
@@ -299,15 +362,6 @@ const Game = (() => {
     return { ok: true, drawn };
   }
 
-  function cancelDrawnDestinations() {
-    if (!state.turn || state.turn.type !== 'choose-destinations') {
-      return { ok: false, error: 'Aucun tirage de destinations en attente.' };
-    }
-    state.destinationDeck.unshift(...state.turn.drawn);
-    state.turn = null;
-    return { ok: true };
-  }
-
   function confirmDrawnDestinations(keptIds) {
     if (!state.turn || state.turn.type !== 'choose-destinations') {
       return { ok: false, error: 'Aucun tirage de destinations en attente.' };
@@ -322,6 +376,11 @@ const Game = (() => {
     state.turn = null;
     endTurn();
     return { ok: true };
+  }
+
+  function stationOwnerAt(cityId) {
+    const idx = state.players.findIndex(p => p.placedStations.includes(cityId));
+    return idx === -1 ? null : idx;
   }
 
   function stationCost(player) {
@@ -347,7 +406,7 @@ const Game = (() => {
     const player = currentPlayer();
     const cost = stationCost(player);
     if (cost == null) return { ok: false, error: 'Plus de gare disponible.' };
-    if (player.placedStations.includes(cityId)) return { ok: false, error: 'Vous avez déjà une gare dans cette ville.' };
+    if (stationOwnerAt(cityId) != null) return { ok: false, error: 'Il y a déjà une gare dans cette ville.' };
 
     const check = validateStationPayment(colorToUse, locoCount, player.hand, cost);
     if (!check.ok) return check;
@@ -370,20 +429,7 @@ const Game = (() => {
     return state.routes.filter(r => r.claimedBy === playerIndex);
   }
 
-  // Une gare posée dans une ville permet, pour le décompte des destinations
-  // uniquement (pas pour le bonus de route continue), d'emprunter les routes
-  // adverses partant de cette ville — simplification du "bonifier une
-  // destination via une route adverse" de la section 4.C de la spec.
-  function isConnected(playerIndex, cityA, cityB) {
-    const player = state.players[playerIndex];
-    const edges = buildPlayerEdges(playerIndex).slice();
-    player.placedStations.forEach(cityId => {
-      state.routes.forEach(r => {
-        if (r.claimedBy != null && r.claimedBy !== playerIndex && (r.from === cityId || r.to === cityId)) {
-          edges.push(r);
-        }
-      });
-    });
+  function connected(edges, cityA, cityB) {
     const adj = {};
     edges.forEach(e => {
       (adj[e.from] = adj[e.from] || []).push(e.to);
@@ -402,6 +448,32 @@ const Game = (() => {
       }
     }
     return cityA === cityB;
+  }
+
+  // Règle des gares : chaque gare posée permet d'emprunter UNE seule route adverse partant de sa
+  // ville, pour le décompte des destinations uniquement. On teste toutes les combinaisons et on
+  // garde celle qui rapporte le plus de points.
+  function bestDestinationOutcome(playerIndex) {
+    const player = state.players[playerIndex];
+    const own = buildPlayerEdges(playerIndex);
+    const options = player.placedStations.map(cityId => {
+      const routes = state.routes.filter(
+        r => r.claimedBy != null && r.claimedBy !== playerIndex && (r.from === cityId || r.to === cityId)
+      );
+      return [null, ...routes];
+    });
+    let best = null;
+    function evaluate(extra) {
+      const edges = own.concat(extra.filter(Boolean));
+      const details = player.destinations.map(d => ({ ...d, success: connected(edges, d.from, d.to) }));
+      const points = details.reduce((sum, d) => sum + (d.success ? d.points : -d.points), 0);
+      if (!best || points > best.points) best = { details, points };
+    }
+    (function pick(i, chosen) {
+      if (i === options.length) return evaluate(chosen);
+      for (const opt of options[i]) pick(i + 1, chosen.concat([opt]));
+    })(0, []);
+    return best;
   }
 
   function longestTrail(edges) {
@@ -433,14 +505,7 @@ const Game = (() => {
   function finishGame() {
     state.phase = 'gameover';
     const results = state.players.map((player, idx) => {
-      const destinationDetails = player.destinations.map(d => {
-        const success = isConnected(idx, d.from, d.to);
-        return { ...d, success };
-      });
-      const destinationPoints = destinationDetails.reduce(
-        (sum, d) => sum + (d.success ? d.points : -d.points),
-        0
-      );
+      const { details: destinationDetails, points: destinationPoints } = bestDestinationOutcome(idx);
       const edges = buildPlayerEdges(idx);
       const longest = longestTrail(edges);
       return { destinationDetails, destinationPoints, longest, baseScore: player.score };
@@ -451,9 +516,11 @@ const Game = (() => {
       const player = state.players[idx];
       let bonus = 0;
       if (r.longest === maxLongest && maxLongest > 0) bonus = LONGEST_ROUTE_BONUS;
+      // Chaque gare non posée rapporte des points en fin de partie.
+      r.stationBonus = player.stations * STATION_BONUS_PER_UNUSED;
       player.completedDestinations = r.destinationDetails.filter(d => d.success);
       player.failedDestinations = r.destinationDetails.filter(d => !d.success);
-      player.score = r.baseScore + r.destinationPoints + bonus;
+      player.score = r.baseScore + r.destinationPoints + bonus + r.stationBonus;
       r.bonus = bonus;
       r.finalScore = player.score;
     });
@@ -475,11 +542,12 @@ const Game = (() => {
     resolveTunnelPay,
     resolveTunnelRenounce,
     actionDrawDestinations,
-    cancelDrawnDestinations,
     confirmDrawnDestinations,
     stationCost,
     validateStationPayment,
     buildStation,
+    canAct,
+    passTurn,
     getState,
     getRoute,
     currentPlayer,
